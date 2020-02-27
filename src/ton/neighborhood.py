@@ -16,10 +16,10 @@ class Neighborhood:
             for direction in Direction
         }
 
-    def filter(self, predicate: Callable[['Cell'], bool]):
+    def filter(self, predicate: Callable[[Direction, 'Cell'], bool]):
         cells = {}
         for direction, cell in self.cells.items():
-            if cell is not None and predicate(cell):
+            if cell is not None and predicate(direction, cell):
                 cells[direction] = cell
             else:
                 cells[direction] = None

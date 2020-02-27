@@ -32,6 +32,11 @@ class Program(Drawable):
         with Path(path).open('rb') as file:
             return pickle.load(file)
 
+    @property
+    def size(self):
+        h, w = self.cells.shape
+        return w, h
+
     def save(self, path: Path):
         with open(path, 'wb') as file:
             pickle.dump(self, file)

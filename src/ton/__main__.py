@@ -6,6 +6,17 @@ import fire
 
 from .constants import *
 
+import pygame as pg
+
+pg.init()
+screen = pg.display.set_mode(SCREEN_SIZE)
+
+pg.display.set_icon(pg.transform.scale2x(pg.image.load(str(ASSETS_DIR / 'jam.png'))))
+pg.display.set_caption('ton')
+
+from .program import *
+from .editor import *
+
 
 class CLI:
     """
@@ -20,14 +31,7 @@ class CLI:
         Edit a program
         """
 
-        import pygame as pg
-        pg.init()
-
-        screen = pg.display.set_mode(SCREEN_SIZE)
-
-        import ton.editor
-
-        editor = ton.editor.Editor.load_program(path, screen)
+        editor = Editor(path, screen)
         editor.run()
 
         pg.quit()

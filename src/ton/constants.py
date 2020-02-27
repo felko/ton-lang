@@ -4,7 +4,7 @@
 from pathlib import Path
 
 MAX_FPS = 30
-CELL_SIZE = 16
+CELL_SIZE = 32
 
 SCREEN_SIZE = SCREEN_WIDTH, SCREEN_HEIGHT = 512, 512
 
