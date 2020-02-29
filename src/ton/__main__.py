@@ -9,7 +9,7 @@ from .constants import *
 import pygame as pg
 
 pg.init()
-screen = pg.display.set_mode(SCREEN_SIZE)
+window = pg.display.set_mode(SCREEN_SIZE)
 
 pg.display.set_icon(pg.transform.scale2x(pg.image.load(str(ASSETS_DIR / 'jam.png'))))
 pg.display.set_caption('ton')
@@ -31,7 +31,7 @@ class CLI:
         Edit a program
         """
 
-        editor = Editor(path, screen)
+        editor = Editor(path, window)
         editor.run()
 
         pg.quit()

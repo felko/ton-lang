@@ -56,6 +56,15 @@ class Program(Drawable):
                 neighbors[direction] = self.cells[nx, ny]
         return neighbors
 
+    def step(self):
+        next_cells = self.cells.copy()
+
+        for x, y in self._all_coords():
+            neighbors = self.get_neighbors(x, y)
+            next_cells[x, y] = self.cells[x, y].step(neighbors)
+
+        self.cells = next_cells
+
     def draw(self, surface: pg.Surface):
         for x, y in self._all_coords():
             tile_rect = to_rect(x, y)

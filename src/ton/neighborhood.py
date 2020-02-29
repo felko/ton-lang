@@ -31,7 +31,10 @@ class Neighborhood:
             if cell is not None:
                 yield direction, cell
 
-    def cells(self) -> Iterable['Cell']:
+    def __len__(self) -> int:
+        return len(list(filter(lambda x: x is not None, self.cells.values())))
+
+    def get_cells(self) -> Iterable['Cell']:
         for cell in self.cells.values():
             if cell is not None:
                 yield cell
