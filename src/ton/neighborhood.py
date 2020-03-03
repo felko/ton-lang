@@ -1,6 +1,8 @@
 #!/usr/bin/env python3.7
 # coding: utf-8
 
+__all__ = ['Neighborhood']
+
 import operator as op
 from functools import reduce
 from typing import *
@@ -33,6 +35,9 @@ class Neighborhood:
 
     def __len__(self) -> int:
         return len(list(filter(lambda x: x is not None, self.cells.values())))
+
+    def __bool__(self) -> bool:
+        return bool(list(self))
 
     def get_cells(self) -> Iterable['Cell']:
         for cell in self.cells.values():

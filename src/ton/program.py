@@ -1,6 +1,8 @@
 #!/usr/bin/env python3.7
 # coding: utf-8
 
+__all__ = ['Program']
+
 import pygame as pg
 import numpy as np
 
@@ -11,9 +13,9 @@ from pathlib import Path
 import pickle
 from typing import *
 
-from .cell import *
 from .neighborhood import *
 from .types import *
+from .texture import *
 from .utils import *
 from .constants import *
 
@@ -41,7 +43,7 @@ class Program(Drawable):
         with open(path, 'wb') as file:
             pickle.dump(self, file)
 
-    def _all_coords(self) -> Iterable[Tuple[int, int]]:
+    def all_coords(self) -> Iterable[Tuple[int, int]]:
         h, w = self.cells.shape
         yield from itertools.product(range(w), range(h))
 
@@ -49,7 +51,7 @@ class Program(Drawable):
         h, w = self.cells.shape
         return x in range(w) and y in range(h)
 
-    def get_neighbors(self, x: int, y: int) -> Neighborhood:
+    def get_neighbors(self, x: int, y: int) -> 'Neighborhood':
         neighbors = Neighborhood()
         for direction, (nx, ny) in Neighborhood.around(x, y):
             if self.in_bounds(nx, ny):
@@ -59,15 +61,17 @@ class Program(Drawable):
     def step(self):
         next_cells = self.cells.copy()
 
-        for x, y in self._all_coords():
+        for x, y in self.all_coords():
             neighbors = self.get_neighbors(x, y)
             next_cells[x, y] = self.cells[x, y].step(neighbors)
 
         self.cells = next_cells
 
     def draw(self, surface: pg.Surface):
-        for x, y in self._all_coords():
+        for x, y in self.all_coords():
             tile_rect = to_rect(x, y)
             tile_surface = surface.subsurface(tile_rect)
             neighbors = self.get_neighbors(x, y)
             self.cells[x, y].draw(tile_surface, neighbors)
+
+from .cell import *

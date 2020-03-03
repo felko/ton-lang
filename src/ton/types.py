@@ -73,10 +73,15 @@ class Side(IntEnum):
     BACK = auto()
     RIGHT = auto()
 
-    def relative_to(self, direction: Direction) -> Direction:
-        return {
-
-        }[self]
+    def direction_relative_to(self, direction: Direction) -> Direction:
+        if self == Side.FRONT:
+            return direction
+        elif self == Side.BACK:
+            return direction.opposite()
+        elif self == Side.LEFT:
+            return direction.rotated(Rotation.R90)
+        else:
+            return direction.rotated(Rotation.R270)
 
 
 class Connex(IntFlag):

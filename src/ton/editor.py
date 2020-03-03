@@ -9,22 +9,27 @@ from enum import *
 from typing import *
 from pathlib import Path
 
+from .cell import *
 from .program import *
+from .neighborhood import *
 from .texture import *
 from .utils import *
 from .constants import *
 
 
-TOOLBAR_LAYOUT = [
-    Wire,
-    Integer,
-    Adder
-]
-
-
 class Toolbar:
-    def __init__(self):
+    def __init__(self, height: int):
         self._selected = 0
+        self.height = height
+        self.offset = 0
+        self.layout = [
+            Wire,
+            Diode,
+            Anchor,
+            Integer,
+            Adder,
+            Chip
+        ] * 4
 
     @property
     def selected(self) -> int:
@@ -32,18 +37,25 @@ class Toolbar:
 
     @selected.setter
     def selected(self, value: int):
-        self._selected = value % len(TOOLBAR_LAYOUT)
+        self._selected = max(0, min(value, len(self.layout) - 1))
+        # value = max(0, min(value, len(self.layout) - 1))
+
+        if 0 <= value < self.offset:
+            self.offset = value
+        elif value >= self.offset + self.height - 1:
+            self.offset = value - self.height + 1
 
     @property
     def cell_type(self) -> Type[Cell]:
-        return TOOLBAR_LAYOUT[self.selected]
+        return self.layout[self.selected]
 
     def draw(self, surface: pg.Surface):
-        for i, cell_type in enumerate(TOOLBAR_LAYOUT):
+        visible_layout = self.layout[self.offset:self.offset+self.height]
+        for i, cell_type in enumerate(visible_layout):
             rect = pg.Rect((0, CELL_SIZE * i), (CELL_SIZE, CELL_SIZE))
             cell_type().draw(surface.subsurface(rect), Neighborhood({}))
 
-            if i == self.selected:
+            if self.offset + i == self.selected:
                 Cursor.texture.draw(surface.subsurface(rect))
 
 
@@ -81,10 +93,14 @@ class Editor:
     def __init__(self, path: Path, window: pg.Surface):
         self.path = path
         self.program = Program.load(path)
+        self.nesting = []
         self.intermediate = None
         self.cursor = Cursor(0, 0)
-        self.toolbar = Toolbar()
+        self.toolbar = Toolbar(height=16)
         self.clock = pg.time.Clock()
+        self.timer = 0
+        self.steps_per_second = 10
+        self.evaluating = False
         self.running = False
         self.window = window
 
@@ -106,16 +122,29 @@ class Editor:
 
     def handle(self, event: 'pg.Event'):
         if event.type == pg.KEYDOWN:
-            if (event.key == pg.K_q and event.mod & pg.KMOD_CTRL) or event.key == pg.K_ESCAPE:
+            if (event.key == pg.K_q and event.mod & pg.KMOD_CTRL):
                 self.quit()
             elif event.key == pg.K_s and event.mod & pg.KMOD_CTRL:
                 self.save()
             elif event.key == pg.K_l and event.mod & pg.KMOD_CTRL:
                 self.program = Program.empty(*self.program.size)
+            elif event.key == pg.K_r and event.mod & pg.KMOD_CTRL:
+                self.program = Program.load(self.path)
+                self.nesting = []
             elif event.key == pg.K_SPACE:
-                self.program.step()
+                self.board.step()
+            elif event.key == pg.K_RETURN:
+                self.evaluating = not self.evaluating
             elif event.key == pg.K_s:
                 self.cursor.mode = CursorMode.SET
+            elif event.key == pg.K_d:
+                print(self.pointed.info())
+            elif event.key == pg.K_TAB and isinstance(self.pointed, Chip):
+                self.nesting.append(self.pointed.board)
+            elif event.key == pg.K_ESCAPE and event.mod & pg.KMOD_SHIFT:
+                self.nesting = []
+            elif event.key == pg.K_ESCAPE and self.nesting:
+                self.nesting.pop()
         elif event.type == pg.KEYUP:
             if event.key == pg.K_s:
                 self.cursor.mode = CursorMode.NONE
@@ -135,11 +164,15 @@ class Editor:
                     self.pointed.previous_state()
                 else:
                     self.toolbar.selected -= 1
+                    print(self.toolbar.__dict__)
+
             elif event.button == 5:
                 if self.cursor.mode == CursorMode.SET:
                     self.pointed.next_state()
                 else:
                     self.toolbar.selected += 1
+                    print(self.toolbar.__dict__)
+
                 
             self.update_pointed()
 
@@ -149,30 +182,43 @@ class Editor:
 
     @property
     def pointed(self) -> Cell:
-        return self.program.cells[self.cursor.pos]
+        return self.board.cells[self.cursor.pos]
 
     @pointed.setter
     def pointed(self, cell: Cell):
-        self.program.cells[self.cursor.pos] = cell
+        self.board.cells[self.cursor.pos] = cell
+
+    @property
+    def board(self) -> Program:
+        if self.nesting:
+            return self.nesting[-1]
+        else:
+            return self.program
 
     def update(self, dt: float):
-        pass
+        if self.evaluating:
+            self.timer += dt
+
+            if self.timer > 1 / self.steps_per_second:
+                self.timer = 0
+                self.program.step()
 
     def draw(self):
         w, h = self.window.get_size()
         screen = pg.Surface((w - CELL_SIZE, h), pg.SRCALPHA).convert_alpha()
         screen.fill(0x505050FF)
-        self.program.draw(screen)
+        self.board.draw(screen)
 
-        if self.program.in_bounds(*self.cursor.pos):
-            for direction, (nx, ny) in Neighborhood.around(*self.cursor.pos):
-                neighbors = self.program.get_neighbors(nx, ny)
-                neighbors.cells[direction.opposite()] = self.toolbar.cell_type()
-                if self.program.in_bounds(nx, ny):
-                    self.program.cells[nx, ny].draw(screen.subsurface(to_rect(nx, ny)), neighbors)
+        if self.board.in_bounds(*self.cursor.pos):
+            if self.cursor.mode not in (CursorMode.DELETE, CursorMode.SET):
+                for direction, (nx, ny) in Neighborhood.around(*self.cursor.pos):
+                    neighbors = self.board.get_neighbors(nx, ny)
+                    neighbors.cells[direction.opposite()] = self.toolbar.cell_type()
+                    if self.board.in_bounds(nx, ny):
+                        self.board.cells[nx, ny].draw(screen.subsurface(to_rect(nx, ny)), neighbors)
 
             cursor_surface = screen.subsurface(self._get_cursor_rect())
-            self.cursor.draw(cursor_surface, self.program.get_neighbors(*self.cursor.pos), self.toolbar.cell_type)
+            self.cursor.draw(cursor_surface, self.board.get_neighbors(*self.cursor.pos), self.toolbar.cell_type)
 
         self.window.fill(0x00000000)
         self.window.blit(screen, (CELL_SIZE, 0))
@@ -187,7 +233,7 @@ class Editor:
         self.running = True
 
         while self.running:
-            dt = self.clock.tick(MAX_FPS)
+            dt = self.clock.tick(MAX_FPS) / 1000
 
             for event in pg.event.get():
                 self.handle(event)
