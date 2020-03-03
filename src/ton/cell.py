@@ -330,6 +330,9 @@ class Chip(Directional):
         for pos in self.get_side(side):
             yield pos, self.board.cells[pos]
 
+    def copy(self):
+        return copy.deepcopy(self)
+
     def step(self, neighbors: Neighborhood) -> Cell:
         for side in Side:
             direction = side.direction_relative_to(self.direction)
