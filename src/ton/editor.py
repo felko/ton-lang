@@ -8,6 +8,7 @@ from abc import *
 from enum import *
 from typing import *
 from pathlib import Path
+import copy
 
 from .cell import *
 from .program import *
@@ -29,7 +30,7 @@ class Toolbar:
             Integer,
             Adder,
             Chip
-        ] * 4
+        ]
 
     @property
     def selected(self) -> int:
@@ -137,6 +138,9 @@ class Editor:
                 self.evaluating = not self.evaluating
             elif event.key == pg.K_s:
                 self.cursor.mode = CursorMode.SET
+            elif event.key == pg.K_m and isinstance(self.pointed, Chip):
+                p = self.pointed.copy()
+                self.toolbar.layout.append(lambda: p)
             elif event.key == pg.K_d:
                 print(self.pointed.info())
             elif event.key == pg.K_TAB and isinstance(self.pointed, Chip):
@@ -164,14 +168,12 @@ class Editor:
                     self.pointed.previous_state()
                 else:
                     self.toolbar.selected -= 1
-                    print(self.toolbar.__dict__)
 
             elif event.button == 5:
                 if self.cursor.mode == CursorMode.SET:
                     self.pointed.next_state()
                 else:
                     self.toolbar.selected += 1
-                    print(self.toolbar.__dict__)
 
                 
             self.update_pointed()
