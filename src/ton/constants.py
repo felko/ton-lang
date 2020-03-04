@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.7
+#!/usr/bin/env python3.8
 # coding: utf-8
 
 from pathlib import Path
@@ -10,5 +10,5 @@ SCREEN_SIZE = SCREEN_WIDTH, SCREEN_HEIGHT = 512 + CELL_SIZE, 512
 
 CURSOR_OPACITY = .2
 
-PROJECT_DIR = Path(__file__).parent.parent.parent
+PROJECT_DIR = Path(__file__).parent
 ASSETS_DIR = PROJECT_DIR / 'assets'

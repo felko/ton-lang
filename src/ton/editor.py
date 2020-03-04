@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.7
+#!/usr/bin/env python3.8
 # coding: utf-8
 
 import pygame as pg
@@ -10,12 +10,12 @@ from typing import *
 from pathlib import Path
 import copy
 
-from .cell import *
-from .program import *
-from .neighborhood import *
-from .texture import *
-from .utils import *
-from .constants import *
+from ton.cell import *
+from ton.program import *
+from ton.neighborhood import *
+from ton.texture import *
+from ton.utils import *
+from ton.constants import *
 
 
 class Toolbar:
@@ -208,7 +208,7 @@ class Editor:
     def draw(self):
         w, h = self.window.get_size()
         screen = pg.Surface((w - CELL_SIZE, h), pg.SRCALPHA).convert_alpha()
-        screen.fill(0x505050FF)
+        screen.fill((50, 50, 50))
         self.board.draw(screen)
 
         if self.board.in_bounds(*self.cursor.pos):
@@ -222,7 +222,7 @@ class Editor:
             cursor_surface = screen.subsurface(self._get_cursor_rect())
             self.cursor.draw(cursor_surface, self.board.get_neighbors(*self.cursor.pos), self.toolbar.cell_type)
 
-        self.window.fill(0x00000000)
+        self.window.fill((0, 0, 0))
         self.window.blit(screen, (CELL_SIZE, 0))
 
         toolbar_surface = self.window.subsurface(self._get_toolbar_rect())

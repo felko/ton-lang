@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.7
+#!/usr/bin/env python3.8
 # coding: utf-8
 
 import pygame as pg
@@ -7,9 +7,9 @@ from abc import *
 from typing import *
 from pathlib import Path
 
-from .types import *
-from .utils import *
-from .constants import *
+from ton.types import *
+from ton.utils import *
+from ton.constants import *
 
 
 class Texture(Drawable):
@@ -28,8 +28,6 @@ class SimpleTexture(Texture):
         return cls(load_tile_image(ASSETS_DIR / (name + '.png')))
 
     def draw(self, surface: pg.Surface, opacity: float = 1.0):
-        t = self.texture.copy().convert()
-        t.set_alpha(int(opacity * 255))
         blit_alpha(surface, self.texture, (0, 0), opacity)
 
 

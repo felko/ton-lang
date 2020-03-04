@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.7
+#!/usr/bin/env python3.8
 # coding: utf-8
 
 __all__ = [
@@ -21,12 +21,13 @@ import numpy as np
 import random
 import copy
 from abc import *
+from pathlib import Path
 
-from .program import *
-from .texture import *
-from .neighborhood import *
-from .types import *
-from .constants import *
+from ton.program import *
+from ton.texture import *
+from ton.neighborhood import *
+from ton.types import *
+from ton.constants import *
 
 
 class Cell(object):
@@ -157,12 +158,6 @@ class Directional(Cell):
         self.texture.draw(surface, self.direction.relative_rotation_to(Direction.N), opacity)
 
 
-class Diode(Directional):
-    __slots__ = ['direction']
-
-    texture = RotatableTexture.load('diode')
-
-
 class Processor(Directional):
     __slots__ = ['direction', 'inputs', 'outputs', 'arguments']
 
@@ -226,6 +221,29 @@ class Processor(Directional):
                     
         if self.is_fed():
             return self.process(**self.arguments)
+        else:
+            return self
+
+
+class Diode(Processor):
+    __slots__ = ['direction', 'inputs', 'outputs', 'arguments']
+
+    texture = RotatableTexture.load('diode')
+
+    def __init__(self, direction: Direction = Direction.N):
+        super().__init__(
+            direction,
+            inputs={Side.BACK: ('value', Value)},
+            outputs={Side.FRONT}
+        )
+
+    def process(self, value) -> Cell:
+        return value
+
+    def step(self, neighbors: Neighborhood) -> Cell:
+        cell = neighbors[self.get_side_direction(Side.BACK)]
+        if isinstance(cell, Value):
+            return cell
         else:
             return self
 
@@ -350,3 +368,17 @@ class Chip(Directional):
                     return cell
 
         return self
+
+
+class File(Chip):
+    __slots__ = ['direction', 'board', 'path', 'basedir']
+
+    texture = SimpleTexture.load('file')
+
+    def __init__(self, path: Path, direction: Direction = Direction.N):
+        super().__init__(direction, Program.load(path))
+        self.path = path
+        self.basedir = self.path.parent
+        #  self.
+
+    # def next_state(self):

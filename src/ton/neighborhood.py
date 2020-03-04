@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.7
+#!/usr/bin/env python3.8
 # coding: utf-8
 
 __all__ = ['Neighborhood']
@@ -7,7 +7,7 @@ import operator as op
 from functools import reduce
 from typing import *
 
-from .types import *
+from ton.types import *
 
 
 class Neighborhood:

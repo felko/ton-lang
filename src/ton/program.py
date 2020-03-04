@@ -1,4 +1,4 @@
-#!/usr/bin/env python3.7
+#!/usr/bin/env python3.8
 # coding: utf-8
 
 __all__ = ['Program']
@@ -13,11 +13,11 @@ from pathlib import Path
 import pickle
 from typing import *
 
-from .neighborhood import *
-from .types import *
-from .texture import *
-from .utils import *
-from .constants import *
+from ton.neighborhood import *
+from ton.types import *
+from ton.texture import *
+from ton.utils import *
+from ton.constants import *
 
 
 class Program(Drawable):

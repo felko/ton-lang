@@ -1,11 +1,11 @@
-#!/usr/bin/env python3.7
+#!/usr/bin/env python3.8
 # coding: utf-8
 
 import pygame as pg
 
 from typing import *
 
-from .constants import *
+from ton.constants import *
 
 
 def to_tile(x: int, y: int) -> Tuple[int, int]:

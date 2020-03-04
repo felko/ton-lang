@@ -1,10 +1,11 @@
-#!/usr/bin/env python3.7
+#!/usr/bin/env python3.8
 # coding: utf-8
 
 import os
 import fire
+from pathlib import Path
 
-from .constants import *
+from ton.constants import *
 
 import pygame as pg
 
@@ -14,8 +15,8 @@ window = pg.display.set_mode(SCREEN_SIZE)
 pg.display.set_icon(pg.transform.scale2x(pg.image.load(str(ASSETS_DIR / 'jam.png'))))
 pg.display.set_caption('ton')
 
-from .program import *
-from .editor import *
+from ton.program import *
+from ton.editor import *
 
 
 class CLI:
@@ -26,7 +27,7 @@ class CLI:
     def __init__(self, pwd):
         os.chdir(pwd)
 
-    def edit(self, path):
+    def edit(path):
         """
         Edit a program
         """
@@ -36,15 +37,17 @@ class CLI:
 
         pg.quit()
 
-    def new(self, path, width: int, height: int):
+    def new(path: Path, width: int, height: int):
         """
         Creates a new empty program with given dimensions
         """
 
         program = Program.empty(width, height)
-        program.save(path)
+        editor = Editor(path, window)
 
-    def run(self, path, x: int, y: int):
+        pg.quit()
+
+    def run(path: Path, x: int, y: int):
         """
         Executes a program and returns the final state of the cell
         at the given position
@@ -53,6 +56,6 @@ class CLI:
         program = Program.load(path)
         return program.get_cell(x, y)
 
-    
-if __name__ == '__main__':
+
+def main():
     fire.Fire(CLI)
