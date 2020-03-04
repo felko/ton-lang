@@ -37,13 +37,15 @@ class CLI:
 
         pg.quit()
 
-    def new(path: Path, width: int, height: int):
+    def new(path: Path):
         """
-        Creates a new empty program with given dimensions
+        Creates a new empty program
         """
 
-        program = Program.empty(width, height)
+        program = Program.empty(16, 16)
+        program.save(path)
         editor = Editor(path, window)
+        editor.run()
 
         pg.quit()
 

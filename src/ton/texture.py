@@ -7,7 +7,7 @@ from abc import *
 from typing import *
 from pathlib import Path
 
-from ton.types import *
+from ton.type import *
 from ton.utils import *
 from ton.constants import *
 

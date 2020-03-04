@@ -18,19 +18,35 @@ from ton.utils import *
 from ton.constants import *
 
 
+def make_import(path: Path):
+    class ImportedFile(Import):
+        def __init__(self, direction: Direction = Direction.N):
+            super().__init__(path, direction)
+
+        @classmethod
+        def name(cls) -> str:
+            return path.stem
+
+    return ImportedFile
+
+
 class Toolbar:
+    font = pg.font.Font(str(ASSETS_DIR / 'Oxanium-ExtraBold.ttf'), 16)
+
     def __init__(self, height: int):
         self._selected = 0
         self.height = height
         self.offset = 0
+        self.selected_name_timer = 0
         self.layout = [
             Wire,
             Diode,
             Anchor,
             Integer,
             Adder,
-            Chip
-        ]
+            Chip,
+            Debug
+        ] * 3 + list(map(make_import, Path.cwd().glob('*.ton')))
 
     @property
     def selected(self) -> int:
@@ -39,7 +55,6 @@ class Toolbar:
     @selected.setter
     def selected(self, value: int):
         self._selected = max(0, min(value, len(self.layout) - 1))
-        # value = max(0, min(value, len(self.layout) - 1))
 
         if 0 <= value < self.offset:
             self.offset = value
@@ -50,8 +65,16 @@ class Toolbar:
     def cell_type(self) -> Type[Cell]:
         return self.layout[self.selected]
 
+    def scroll(self, amount: int):
+        self.selected += amount
+        self.selected_name_timer = 1.0
+
+    def update(self, dt: float):
+        self.selected_name_timer = max(self.selected_name_timer - dt, 0)
+
     def draw(self, surface: pg.Surface):
         visible_layout = self.layout[self.offset:self.offset+self.height]
+
         for i, cell_type in enumerate(visible_layout):
             rect = pg.Rect((0, CELL_SIZE * i), (CELL_SIZE, CELL_SIZE))
             cell_type().draw(surface.subsurface(rect), Neighborhood({}))
@@ -59,16 +82,23 @@ class Toolbar:
             if self.offset + i == self.selected:
                 Cursor.texture.draw(surface.subsurface(rect))
 
+        if self.selected_name_timer > 0:
+            cell_name = self.font.render(self.cell_type.name(), True, (255, 255, 255), None)
+            # def blit_alpha(target, source, location, opacity):
+            blit_alpha(surface, cell_name, (CELL_SIZE + 8, (self.selected - self.offset) * CELL_SIZE + round(CELL_SIZE / 2 - cell_name.get_height() / 2)), self.selected_name_timer)
+
 
 class CursorMode(IntEnum):
     NONE = auto()
     CREATE = auto()
     DELETE = auto()
     SET = auto()
+    INFO = auto()
 
     
 class Cursor(Drawable):
     texture = SimpleTexture.load('cursor')
+    font = pg.font.Font(str(ASSETS_DIR / 'Oxanium-ExtraBold.ttf'), max(16, round(CELL_SIZE * 1 / 2)))
 
     def __init__(self, x: int, y: int):
         self.x = x
@@ -83,11 +113,20 @@ class Cursor(Drawable):
     def pos(self, value: Tuple[int, int]):
         self.x, self.y = value
 
-    def draw(self, surface: pg.Surface, neighbors: Neighborhood, cell_type: Type[Cell]):
-        if self.mode not in (CursorMode.DELETE, CursorMode.SET):
-            cell_type().draw(surface, neighbors, opacity=.2)
+    def get_rect(self) -> pg.Rect:
+        return to_rect(*self.pos)
+
+    def draw(self, surface: pg.Surface, neighbors: Neighborhood, cell_type: Type[Cell], pointed: Cell):
+        square = surface.subsurface(self.get_rect())
+
+        if self.mode in (CursorMode.NONE, CursorMode.CREATE):
+            cell_type().draw(square, neighbors, opacity=.2)
             
-        self.texture.draw(surface)
+        self.texture.draw(square)
+
+        if self.mode == CursorMode.INFO:
+            info = self.font.render(pointed.info(), True, (255, 255, 255), (0, 0, 0))
+            surface.blit(info, (CELL_SIZE * (self.x + 1) + round(CELL_SIZE / 8), CELL_SIZE * self.y + round(CELL_SIZE / 2 - info.get_height() / 2)))
 
 
 class Editor:
@@ -104,9 +143,6 @@ class Editor:
         self.evaluating = False
         self.running = False
         self.window = window
-
-    def _get_cursor_rect(self) -> pg.Rect:
-        return to_rect(*self.cursor.pos)
 
     def _get_toolbar_rect(self) -> pg.Rect:
         return pg.Rect((0, 0), (CELL_SIZE, SCREEN_HEIGHT))
@@ -138,12 +174,12 @@ class Editor:
                 self.evaluating = not self.evaluating
             elif event.key == pg.K_s:
                 self.cursor.mode = CursorMode.SET
-            elif event.key == pg.K_m and isinstance(self.pointed, Chip):
+            elif event.key == pg.K_m and type(self.pointed) is Chip:
                 p = self.pointed.copy()
                 self.toolbar.layout.append(lambda: p)
-            elif event.key == pg.K_d:
-                print(self.pointed.info())
-            elif event.key == pg.K_TAB and isinstance(self.pointed, Chip):
+            elif event.key == pg.K_i:
+                self.cursor.mode = CursorMode.INFO
+            elif event.key == pg.K_TAB and type(self.pointed) is Chip:
                 self.nesting.append(self.pointed.board)
             elif event.key == pg.K_ESCAPE and event.mod & pg.KMOD_SHIFT:
                 self.nesting = []
@@ -151,6 +187,8 @@ class Editor:
                 self.nesting.pop()
         elif event.type == pg.KEYUP:
             if event.key == pg.K_s:
+                self.cursor.mode = CursorMode.NONE
+            elif event.key == pg.K_i:
                 self.cursor.mode = CursorMode.NONE
         elif event.type == pg.QUIT:
             self.quit()
@@ -167,13 +205,13 @@ class Editor:
                 if self.cursor.mode == CursorMode.SET:
                     self.pointed.previous_state()
                 else:
-                    self.toolbar.selected -= 1
+                    self.toolbar.scroll(-1)
 
             elif event.button == 5:
                 if self.cursor.mode == CursorMode.SET:
                     self.pointed.next_state()
                 else:
-                    self.toolbar.selected += 1
+                    self.toolbar.scroll(1)
 
                 
             self.update_pointed()
@@ -198,6 +236,8 @@ class Editor:
             return self.program
 
     def update(self, dt: float):
+        self.toolbar.update(dt)
+        
         if self.evaluating:
             self.timer += dt
 
@@ -212,27 +252,27 @@ class Editor:
         self.board.draw(screen)
 
         if self.board.in_bounds(*self.cursor.pos):
-            if self.cursor.mode not in (CursorMode.DELETE, CursorMode.SET):
+            if self.cursor.mode in (CursorMode.NONE, CursorMode.CREATE):
                 for direction, (nx, ny) in Neighborhood.around(*self.cursor.pos):
                     neighbors = self.board.get_neighbors(nx, ny)
                     neighbors.cells[direction.opposite()] = self.toolbar.cell_type()
                     if self.board.in_bounds(nx, ny):
                         self.board.cells[nx, ny].draw(screen.subsurface(to_rect(nx, ny)), neighbors)
 
-            cursor_surface = screen.subsurface(self._get_cursor_rect())
-            self.cursor.draw(cursor_surface, self.board.get_neighbors(*self.cursor.pos), self.toolbar.cell_type)
+            self.cursor.draw(screen, self.board.get_neighbors(*self.cursor.pos), self.toolbar.cell_type, self.pointed)
 
         self.window.fill((0, 0, 0))
         self.window.blit(screen, (CELL_SIZE, 0))
 
-        toolbar_surface = self.window.subsurface(self._get_toolbar_rect())
-        self.toolbar.draw(toolbar_surface)
+        self.toolbar.draw(self.window)
 
     def quit(self):
         self.running = False
 
     def run(self):
         self.running = True
+
+        pg.display.set_caption(f"ton — {str(self.path)}")
 
         while self.running:
             dt = self.clock.tick(MAX_FPS) / 1000

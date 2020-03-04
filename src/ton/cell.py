@@ -12,7 +12,9 @@ __all__ = [
     'Diode',
     'Processor',
     'Adder',
-    'Chip'
+    'Debug',
+    'Chip',
+    'Import'
 ]
 
 import pygame as pg
@@ -26,7 +28,7 @@ from pathlib import Path
 from ton.program import *
 from ton.texture import *
 from ton.neighborhood import *
-from ton.types import *
+from ton.type import *
 from ton.constants import *
 
 
@@ -38,6 +40,10 @@ class Cell(object):
     @abstractmethod
     def step(self, neighborhood: Neighborhood) -> 'Cell':
         raise NotImplementedError
+
+    @classmethod
+    def name(cls) -> str:
+        return cls.__name__
 
     def on_create(self, neighbors: Neighborhood):
         pass
@@ -270,6 +276,26 @@ class Adder(Processor):
             return super().info()
 
 
+class Debug(Cell):
+    __slots__ = []
+
+    texture = SimpleTexture.load('console')
+
+    def __init__(self):
+        super().__init__()
+
+    def get_pins(self) -> Set[Direction]:
+        return set(Direction)
+
+    def step(self, neighbors: Neighborhood) -> Cell:
+        for neighbor in neighbors.filter(lambda _, cell: isinstance(cell, Value)).get_cells():
+            print(neighbor.info())
+        return self
+
+    def draw(self, surface: pg.Surface, neighbors: Neighborhood, opacity: float = 1.0):
+        self.texture.draw(surface, opacity)
+
+
 class Value(Cell):
     __slots__ = []
 
@@ -370,15 +396,14 @@ class Chip(Directional):
         return self
 
 
-class File(Chip):
-    __slots__ = ['direction', 'board', 'path', 'basedir']
+class Import(Chip):
+    __slots__ = ['direction', 'board', 'path']
 
-    texture = SimpleTexture.load('file')
+    texture = RotatableTexture.load('file')
 
     def __init__(self, path: Path, direction: Direction = Direction.N):
         super().__init__(direction, Program.load(path))
         self.path = path
-        self.basedir = self.path.parent
-        #  self.
 
-    # def next_state(self):
+    def info(self) -> str:
+        return f"<Import {self.path.name!r}>"
