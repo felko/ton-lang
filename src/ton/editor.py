@@ -38,6 +38,8 @@ class Toolbar:
         self.height = height
         self.offset = 0
         self.selected_name_timer = 0
+        self.selected_name_cooldown = 1
+        self.selected_name_fadeout = 1/16
         self.layout = [
             Wire,
             Diode,
@@ -45,8 +47,11 @@ class Toolbar:
             Integer,
             Adder,
             Chip,
-            Debug
-        ] * 3 + list(map(make_import, Path.cwd().glob('*.ton')))
+            Debug,
+            Begin,
+            Comma,
+            End
+        ] # + list(map(make_import, Path.cwd().glob('*.ton')))
 
     @property
     def selected(self) -> int:
@@ -67,7 +72,7 @@ class Toolbar:
 
     def scroll(self, amount: int):
         self.selected += amount
-        self.selected_name_timer = 1.0
+        self.selected_name_timer = self.selected_name_cooldown
 
     def update(self, dt: float):
         self.selected_name_timer = max(self.selected_name_timer - dt, 0)
@@ -85,7 +90,13 @@ class Toolbar:
         if self.selected_name_timer > 0:
             cell_name = self.font.render(self.cell_type.name(), True, (255, 255, 255), None)
             # def blit_alpha(target, source, location, opacity):
-            blit_alpha(surface, cell_name, (CELL_SIZE + 8, (self.selected - self.offset) * CELL_SIZE + round(CELL_SIZE / 2 - cell_name.get_height() / 2)), self.selected_name_timer)
+            timer = self.selected_name_cooldown - self.selected_name_timer
+            blit_alpha(
+                surface,
+                cell_name,
+                (CELL_SIZE + 8, (self.selected - self.offset) * CELL_SIZE + round(CELL_SIZE / 2 - cell_name.get_height() / 2)),
+                -(timer/self.selected_name_cooldown)**(1/self.selected_name_fadeout) + 1
+            )
 
 
 class CursorMode(IntEnum):
@@ -167,6 +178,7 @@ class Editor:
                 self.program = Program.empty(*self.program.size)
             elif event.key == pg.K_r and event.mod & pg.KMOD_CTRL:
                 self.program = Program.load(self.path)
+                self.evaluating = False
                 self.nesting = []
             elif event.key == pg.K_SPACE:
                 self.board.step()

@@ -14,7 +14,10 @@ __all__ = [
     'Adder',
     'Debug',
     'Chip',
-    'Import'
+    'Import',
+    'List',
+    'Append',
+    'Pop'
 ]
 
 import pygame as pg
@@ -172,6 +175,7 @@ class Processor(Directional):
         self.inputs = inputs
         self.outputs = outputs
         self.arguments = {}
+        self.return_values = {}
 
     @abstractmethod
     def process(self, **kwargs):
@@ -211,6 +215,9 @@ class Processor(Directional):
 
     def will_provide(self, direction: Direction) -> bool:
         return self.direction.side_relative_to(direction) in self.outputs
+
+    def get_output(self, direction: Direction) -> Cell:
+
 
     def has_pin(self, direction: Direction) -> bool:
         return self.is_waiting_for(direction) or self.will_provide(direction)
@@ -300,6 +307,9 @@ class Value(Cell):
     __slots__ = []
 
     background = SimpleTexture.load('value')
+
+    def __init__(self):
+        self.index = None
 
     def get_pins(self) -> Set[Direction]:
         return set(Direction)
@@ -407,3 +417,57 @@ class Import(Chip):
 
     def info(self) -> str:
         return f"<Import {self.path.name!r}>"
+
+
+class List(Value):
+    __slots__ = ['value']
+
+    texture = SimpleTexture.load('list')
+    
+    def __init__(self, value: List[Value] = ()):
+        self.value = list(value)
+
+    def info(self) -> str:
+        return f"[{', '.join(map(lambda cell: cell.info, self.value))}]"
+
+    def copy(self) -> 'List':
+        return copy.deepcopy(self)
+
+    def draw(self, surface: pg.Surface, neighbors: Neighborhood, opacity: float = 1.0):
+        self.texture.draw(surface, opacity)
+
+
+class Append(Processor):
+    __slots__ = ['direction', 'inputs', 'outputs', 'arguments']
+
+    texture = RotatableTexture.load('append')
+
+    def __init__(self, direction: Direction = Direction.N):
+        super().__init__(
+            direction,
+            inputs={Side.LEFT: ('x', Value), Side.RIGHT: ('xs', List)},
+            outputs={Side.FRONT}
+        )
+
+    def process(self, x: Value, xs: List):
+        lst = xs.copy()
+        lst.value.append(x)
+        return lst
+
+
+class Pop(Processor):
+    __slots__ = ['direction', 'inputs', 'outputs', 'arguments']
+
+    texture = RotatableTexture.load('pop')
+
+    def __init__(self, direction: Direction = Direction.N):
+        super().__init__(
+            direction,
+            inputs={Side.LEFT: ('xs', Value)},
+            outputs={Side.FRONT, Side.LEFT}
+        )
+
+    def process(self, x: Value, xs: List):
+        lst = xs.copy()
+        lst.value.append(x)
+        return lst
