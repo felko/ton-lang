@@ -65,7 +65,7 @@ class Direction(IntEnum):
 
     def opposite(self) -> 'Direction':
         return self.rotated(Rotation.R180)
-
+    
 
 class Side(IntEnum):
     FRONT = auto()
@@ -99,3 +99,4 @@ class Drawable(ABC):
     @abstractmethod
     def draw(self, surface: pg.Surface, *args, **kwargs):
         raise NotImplementedError
+

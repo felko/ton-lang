@@ -9,12 +9,14 @@ from enum import *
 from typing import *
 from pathlib import Path
 import copy
+import json
 
 from ton.cell import *
 from ton.program import *
 from ton.neighborhood import *
 from ton.texture import *
 from ton.utils import *
+from ton.type import *
 from ton.constants import *
 
 
@@ -39,18 +41,18 @@ class Toolbar:
         self.offset = 0
         self.selected_name_timer = 0
         self.selected_name_cooldown = 1
-        self.selected_name_fadeout = 1/16
+        self.selected_name_fadeout = 1/8
         self.layout = [
             Wire,
             Diode,
             Anchor,
             Integer,
+            List_,
             Adder,
+            Append,
+            Pop,
             Chip,
-            Debug,
-            Begin,
-            Comma,
-            End
+            Debug
         ] # + list(map(make_import, Path.cwd().glob('*.ton')))
 
     @property
@@ -95,7 +97,7 @@ class Toolbar:
                 surface,
                 cell_name,
                 (CELL_SIZE + 8, (self.selected - self.offset) * CELL_SIZE + round(CELL_SIZE / 2 - cell_name.get_height() / 2)),
-                -(timer/self.selected_name_cooldown)**(1/self.selected_name_fadeout) + 1
+                1 - (timer/self.selected_name_cooldown)**(1/self.selected_name_fadeout)
             )
 
 
@@ -189,6 +191,8 @@ class Editor:
             elif event.key == pg.K_m and type(self.pointed) is Chip:
                 p = self.pointed.copy()
                 self.toolbar.layout.append(lambda: p)
+            elif event.key == pg.K_d:
+                print(json.dumps(self.pointed.debug(), indent=4))
             elif event.key == pg.K_i:
                 self.cursor.mode = CursorMode.INFO
             elif event.key == pg.K_TAB and type(self.pointed) is Chip:

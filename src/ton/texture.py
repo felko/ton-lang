@@ -1,6 +1,13 @@
 #!/usr/bin/env python3.8
 # coding: utf-8
 
+__all__ = [
+    'Texture',
+    'SimpleTexture',
+    'RotatableTexture',
+    'ConnexTexture'
+]
+
 import pygame as pg
 
 from abc import *

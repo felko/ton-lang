@@ -15,7 +15,7 @@ __all__ = [
     'Debug',
     'Chip',
     'Import',
-    'List',
+    'List_',
     'Append',
     'Pop'
 ]
@@ -26,11 +26,13 @@ import numpy as np
 import random
 import copy
 from abc import *
+from typing import *
 from pathlib import Path
 
 from ton.program import *
 from ton.texture import *
 from ton.neighborhood import *
+from ton.utils import *
 from ton.type import *
 from ton.constants import *
 
@@ -65,6 +67,13 @@ class Cell(object):
 
     def info(self) -> str:
         return f"<{type(self).__name__}>"
+
+    def debug(self):
+        d = {'__type__': type(self).__name__}
+        for slot in self.__slots__:
+            d[slot] = getattr(self, slot)
+        return d
+
 
     def copy(self) -> 'Cell':
         return copy.copy(self)
@@ -105,16 +114,30 @@ class Wire(Cell):
 
         if values:
             return random.choice(list(values.get_cells()))
-        else:
-            cells_or_edges = []
-            for cell in neighbors.cells.values():
-                if cell is None or isinstance(cell, (Wire, Processor, Anchor, Chip)):
-                    cells_or_edges.append(cell)
 
-            if len(cells_or_edges) >= 2:
-                return self
-            else:
-                return Empty()
+        processors = neighbors.filter(lambda _, cell: isinstance(cell, Processor))
+        candidates = []
+
+        for direction, processor in processors:
+            if processor.is_fed() and processor.will_provide(direction.opposite()):
+                outputs = processor.process(processor.arguments)
+                side = processor.get_direction_side(direction.opposite())
+                candidates.append((processor, outputs[side]))
+
+        if candidates:
+            processor, value = random.choice(candidates)
+            processor.fired = True
+            return value
+
+        cells_or_edges = []
+        for cell in neighbors.cells.values():
+            if cell is None or isinstance(cell, (Wire, Processor, Anchor, Chip)):
+                cells_or_edges.append(cell)
+
+        if len(cells_or_edges) >= 2:
+            return self
+        else:
+            return Empty()
 
     def get_pins(self) -> Set[Direction]:
         return set(Direction)
@@ -154,6 +177,9 @@ class Directional(Cell):
     def get_side_direction(self, side: Side) -> Direction:
         return side.direction_relative_to(self.direction)
 
+    def get_direction_side(self, direction: Direction) -> Side:
+        return direction.side_relative_to(self.direction)
+
     def rotate(self, rotation: Rotation):
         self.direction = self.direction.rotated(rotation)
 
@@ -166,30 +192,31 @@ class Directional(Cell):
     def draw(self, surface: pg.Surface, neighbors: Neighborhood, opacity: float = 1.0):
         self.texture.draw(surface, self.direction.relative_rotation_to(Direction.N), opacity)
 
+    def debug(self):
+        d = super().debug()
+        d['direction'] = self.direction.name
+        return d
+
 
 class Processor(Directional):
-    __slots__ = ['direction', 'inputs', 'outputs', 'arguments']
+    __slots__ = ['direction', 'inputs', 'outputs', 'arguments', 'fired']
 
-    def __init__(self, direction: Direction, inputs: Dict[Side, Tuple[str, Type[Cell]]], outputs: Set[Side]):
+    def __init__(self, direction: Direction, inputs: Dict[Side, Type[Cell]], outputs: Set[Side]):
         super().__init__(direction)
         self.inputs = inputs
         self.outputs = outputs
         self.arguments = {}
-        self.return_values = {}
+        self.fired = False
 
     @abstractmethod
-    def process(self, **kwargs):
+    def process(self, arguments: Dict[Side, Cell]) -> Dict[Side, Cell]:
         raise NotImplementedError
 
     def get_pins(self) -> Set[Direction]:
         pins = set()
 
         for direction in Direction:
-            try:
-                self.get_parameter_towards(direction)
-            except KeyError:
-                continue
-            else:
+            if self.get_direction_side(direction) in self.inputs:
                 pins.add(direction)
 
         for side in self.outputs:
@@ -197,49 +224,61 @@ class Processor(Directional):
 
         return pins
 
-    def get_parameter_towards(self, direction: Direction) -> Tuple[str, Type[Cell]]:
+    def get_parameter_towards(self, direction: Direction) -> Type[Cell]:
         return self.inputs[self.direction.side_relative_to(direction)]
 
     def is_fed(self) -> bool:
         return all(
-            param in self.arguments
-            and isinstance(self.arguments[param], type)
-            for param, type in self.inputs.values()
+            side in self.arguments
+            and isinstance(self.arguments[side], type)
+            for side, type in self.inputs.items()
         )
 
     def is_waiting_for(self, direction: Direction) -> bool:
-        try:
-            return not self.is_fed() and self.get_parameter_towards(direction)[0] in self.arguments
-        except KeyError:
-            return False
+        return not self.is_fed() and self.get_direction_side(direction) in self.inputs
 
     def will_provide(self, direction: Direction) -> bool:
-        return self.direction.side_relative_to(direction) in self.outputs
-
-    def get_output(self, direction: Direction) -> Cell:
-
+        return self.get_direction_side(direction) in self.outputs
 
     def has_pin(self, direction: Direction) -> bool:
         return self.is_waiting_for(direction) or self.will_provide(direction)
 
     def step(self, neighbors: Neighborhood) -> Cell:
+        if self.fired:
+            return Empty()
+        
         for direction, cell in neighbors:
+            side = self.get_direction_side(direction)
             try:
-                name, type_ = self.inputs[self.direction.side_relative_to(direction)]
+                type_ = self.inputs[side]
             except KeyError:
                 continue
             else:
                 if isinstance(cell, type_):
-                    self.arguments[name] = cell
-                    
-        if self.is_fed():
-            return self.process(**self.arguments)
+                    self.arguments[side] = cell
+
+        return self
+
+    def info(self) -> str:
+        if self.arguments:
+            return f"<{type(self).__name__} {' '.join(map(lambda assoc: f'{assoc[0].name}={assoc[1].info()}', self.arguments.items()))}>"
         else:
-            return self
+            return f"<{type(self).__name__}>"
+
+    def debug(self):
+        d = {
+            '__type__': type(self).__name__,
+            'direction': self.direction.name,
+            'inputs': {side.name: param.__name__ for side, param in self.inputs.items()},
+            'outputs': [side.name for side in self.outputs],
+            'arguments': {side.name: cell.debug() for side, cell in self.arguments.items()},
+            'fired': self.fired
+        }
+        return d
 
 
 class Diode(Processor):
-    __slots__ = ['direction', 'inputs', 'outputs', 'arguments']
+    __slots__ = ['direction', 'inputs', 'outputs', 'arguments', 'fired']
 
     texture = RotatableTexture.load('diode')
 
@@ -250,8 +289,10 @@ class Diode(Processor):
             outputs={Side.FRONT}
         )
 
-    def process(self, value) -> Cell:
-        return value
+    def process(self, inputs: Dict[Side, Cell]) -> Dict[Side, Cell]:
+        return {
+            Side.FRONT: inputs[Side.BACK]
+        }
 
     def step(self, neighbors: Neighborhood) -> Cell:
         cell = neighbors[self.get_side_direction(Side.BACK)]
@@ -262,25 +303,23 @@ class Diode(Processor):
 
 
 class Adder(Processor):
-    __slots__ = ['direction', 'inputs', 'outputs', 'arguments']
+    __slots__ = ['direction', 'inputs', 'outputs', 'arguments', 'fired']
     
     texture = RotatableTexture.load('adder')
 
     def __init__(self, direction: Direction = Direction.N):
         super().__init__(
             direction,
-            inputs={Side.LEFT: ('x', Integer), Side.RIGHT: ('y', Integer)},
+            inputs={Side.LEFT: Integer, Side.RIGHT: Integer},
             outputs={Side.FRONT}
         )
 
-    def process(self, x, y):
-        return Integer(x.value + y.value)
-
-    def info(self) -> str:
-        if self.arguments:
-            return f"<Adder {' '.join(map(lambda assoc: f'{assoc[0]}={assoc[1].info()}', self.arguments.items()))}>"
-        else:
-            return super().info()
+    def process(self, inputs):
+        x = inputs[Side.LEFT].value
+        y = inputs[Side.RIGHT].value
+        return {
+            Side.FRONT: Integer(x + y)
+        }
 
 
 class Debug(Cell):
@@ -318,7 +357,7 @@ class Value(Cell):
         processors = neighbors.filter(lambda _, cell: isinstance(cell, Processor))
 
         for direction, processor in processors:
-            if processor.has_pin(direction.opposite()):
+            if processor.has_pin(direction.opposite()) and not processor.is_fed():
                 return self
 
         anchors = neighbors.filter(lambda _, cell: isinstance(cell, Anchor))
@@ -405,6 +444,10 @@ class Chip(Directional):
 
         return self
 
+    def debug(self):
+        d = super().debug()
+        return d
+
 
 class Import(Chip):
     __slots__ = ['direction', 'board', 'path']
@@ -419,16 +462,22 @@ class Import(Chip):
         return f"<Import {self.path.name!r}>"
 
 
-class List(Value):
-    __slots__ = ['value']
+class List_(Value):
+    __slots__ = ['values']
 
     texture = SimpleTexture.load('list')
     
-    def __init__(self, value: List[Value] = ()):
-        self.value = list(value)
+    def __init__(self, values: List[Value] = ()):
+        self.values = list(values)
 
     def info(self) -> str:
-        return f"[{', '.join(map(lambda cell: cell.info, self.value))}]"
+        return f"[{', '.join(map(lambda cell: cell.info(), self.values))}]"
+
+    def debug(self):
+        return {
+            '__type__': type(self).__name__,
+            'values': [value.debug() for value in self.values]
+        }
 
     def copy(self) -> 'List':
         return copy.deepcopy(self)
@@ -438,36 +487,41 @@ class List(Value):
 
 
 class Append(Processor):
-    __slots__ = ['direction', 'inputs', 'outputs', 'arguments']
+    __slots__ = ['direction', 'inputs', 'outputs', 'arguments', 'fired']
 
     texture = RotatableTexture.load('append')
 
     def __init__(self, direction: Direction = Direction.N):
         super().__init__(
             direction,
-            inputs={Side.LEFT: ('x', Value), Side.RIGHT: ('xs', List)},
+            inputs={Side.LEFT: Value, Side.BACK: List_},
             outputs={Side.FRONT}
         )
 
-    def process(self, x: Value, xs: List):
-        lst = xs.copy()
-        lst.value.append(x)
-        return lst
+    def process(self, inputs: Dict[Side, Cell]) -> Dict[Side, Cell]:
+        lst = inputs[Side.BACK].copy()
+        lst.values.append(inputs[Side.LEFT])
+        return {
+            Side.FRONT: lst
+        }
 
 
 class Pop(Processor):
-    __slots__ = ['direction', 'inputs', 'outputs', 'arguments']
+    __slots__ = ['direction', 'inputs', 'outputs', 'arguments', 'fired']
 
     texture = RotatableTexture.load('pop')
 
     def __init__(self, direction: Direction = Direction.N):
         super().__init__(
             direction,
-            inputs={Side.LEFT: ('xs', Value)},
+            inputs={Side.BACK: List_},
             outputs={Side.FRONT, Side.LEFT}
         )
 
-    def process(self, x: Value, xs: List):
-        lst = xs.copy()
-        lst.value.append(x)
-        return lst
+    def process(self, inputs: Dict[Side, Cell]) -> Dict[Side, Cell]:
+        lst = inputs[Side.BACK].copy()
+        x = lst.values.pop(0)
+        return {
+            Side.FRONT: lst,
+            Side.LEFT: x
+        }
