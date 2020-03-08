@@ -201,6 +201,9 @@ class Directional(Cell):
 class Processor(Directional):
     __slots__ = ['direction', 'inputs', 'outputs', 'arguments', 'fired']
 
+    pin_input_texture = RotatableTexture.load('pin_input')
+    pin_output_texture = RotatableTexture.load('pin_output')
+
     def __init__(self, direction: Direction, inputs: Dict[Side, Type[Cell]], outputs: Set[Side]):
         super().__init__(direction)
         self.inputs = inputs
@@ -275,6 +278,18 @@ class Processor(Directional):
             'fired': self.fired
         }
         return d
+
+    def draw_pin_overlay(self, surface: pg.Surface):
+        for side in self.inputs.keys():
+            self.pin_input_texture.draw(surface, self.get_side_direction(side).relative_rotation_to(Direction.N))
+
+        for side in self.outputs:
+            self.pin_output_texture.draw(surface, self.get_side_direction(side).relative_rotation_to(Direction.N))
+
+    def draw(self, surface: pg.Surface, neighbors: Neighborhood, opacity: float = 1.0):
+        super().draw(surface, neighbors, opacity)
+        self.draw_pin_overlay(surface)
+
 
 
 class Diode(Processor):
