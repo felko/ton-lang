@@ -45,9 +45,13 @@ class Toolbar:
         self.layout = [
             Wire,
             Diode,
+            Transistor,
             Anchor,
+            Mu,
             Integer,
+            Boolean,
             List_,
+            Equals,
             Adder,
             Append,
             Pop,

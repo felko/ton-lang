@@ -8,8 +8,11 @@ __all__ = [
     'Anchor',
     'Value',
     'Integer',
+    'Boolean',
+    'Equals',
     'Directional',
     'Diode',
+    'Transistor',
     'Processor',
     'Adder',
     'Debug',
@@ -17,7 +20,8 @@ __all__ = [
     'Import',
     'List_',
     'Append',
-    'Pop'
+    'Pop',
+    'Mu'
 ]
 
 import pygame as pg
@@ -77,7 +81,6 @@ class Cell(object):
         for slot in self.__slots__:
             d[slot] = getattr(self, slot)
         return d
-
 
     def copy(self) -> 'Cell':
         return copy.copy(self)
@@ -270,10 +273,11 @@ class Processor(Directional):
         return f"<{type(self).__name__}>"
 
     def debug(self):
+        print(self)
         d = {
-            '__type__': type(self).__name__,
+            '__type__': self.name(),
             'direction': self.direction.name,
-            'inputs': {side.name: param.__name__ for side, param in self.inputs.items()},
+            'inputs': {side.name: param.name() for side, param in self.inputs.items()},
             'outputs': [side.name for side in self.outputs],
             'arguments': {side.name: cell.debug() for side, cell in self.arguments.items()},
             'fired': self.fired
@@ -301,7 +305,7 @@ class Diode(Processor):
     def __init__(self, direction: Direction = Direction.N):
         super().__init__(
             direction,
-            inputs={Side.BACK: ('value', Value)},
+            inputs={Side.BACK: Value},
             outputs={Side.FRONT}
         )
 
@@ -310,14 +314,26 @@ class Diode(Processor):
             Side.FRONT: inputs[Side.BACK]
         }
 
-    def step(self, neighbors: Neighborhood) -> Cell:
-        cell = neighbors[self.get_side_direction(Side.BACK)]
-        if isinstance(cell, Value):
-            return cell
+
+class Transistor(Processor):
+    __slots__ = ['direction', 'inputs', 'outputs', 'arguments', 'fired']
+
+    texture = RotatableTexture.load('transistor')
+
+    def __init__(self, direction: Direction = Direction.N):
+        super().__init__(
+            direction,
+            inputs={Side.BACK: Value, Side.LEFT: Boolean},
+            outputs={Side.FRONT}
+        )
+
+    def process(self, inputs: Dict[Side, Cell]) -> Dict[Side, Cell]:
+        if inputs[Side.LEFT].value:
+            return {Side.FRONT: inputs[Side.BACK]}
         else:
-            return self
+            return {Side.FRONT: Empty()}
 
-
+        
 class Adder(Processor):
     __slots__ = ['direction', 'inputs', 'outputs', 'arguments', 'fired']
     
@@ -330,11 +346,29 @@ class Adder(Processor):
             outputs={Side.FRONT}
         )
 
-    def process(self, inputs):
+    def process(self, inputs: Dict[Side, Cell]) -> Dict[Side, Cell]:
         x = inputs[Side.LEFT].value
         y = inputs[Side.RIGHT].value
         return {
             Side.FRONT: Integer(x + y)
+        }
+
+
+class Equals(Processor):
+    __slots__ = ['direction', 'inputs', 'outputs', 'arguments', 'fired']
+
+    texture = RotatableTexture.load('equals')
+
+    def __init__(self, direction: Direction = Direction.N):
+        super().__init__(
+            direction,
+            inputs={Side.LEFT: Value, Side.RIGHT: Value},
+            outputs={Side.FRONT}
+        )
+
+    def process(self, inputs: Dict[Side, Cell]) -> Dict[Side, Cell]:
+        return {
+            Side.FRONT: Boolean(inputs[Side.LEFT] == inputs[Side.RIGHT])
         }
 
 
@@ -366,6 +400,10 @@ class Value(Cell):
     def __init__(self):
         self.index = None
 
+    @abstractmethod
+    def __eq__(self, other):
+        raise NotImplementedError
+
     def get_pins(self) -> Set[Direction]:
         return set(Direction)
     
@@ -391,6 +429,9 @@ class Integer(Value):
     def __init__(self, value: int = 0):
         self.value = value
 
+    def __eq__(self, other):
+        return isinstance(other, Integer) and self.value == other.value
+
     @classmethod
     def draw_icon(self, surface: pg.Surface, opacity: float = 1.0):
         texture = self.font.render('x', True, (0, 0, 0))
@@ -412,6 +453,38 @@ class Integer(Value):
         texture = pg.transform.scale(texture, (CELL_SIZE - 4, CELL_SIZE - 4))
         blit_alpha(surface, Value.background.texture, (0, 0), opacity)
         blit_alpha(surface, texture, (2, 2), opacity)
+
+
+class Boolean(Value):
+    __slots__ = ['value']
+
+    false_texture = SimpleTexture.load('false')
+    true_texture = SimpleTexture.load('true')
+
+    def __init__(self, value: bool = True):
+        self.value = value
+
+    def __eq__(self, other):
+        return isinstance(other, Boolean) and self.value == other.value
+
+    @classmethod
+    def draw_icon(self, surface: pg.Surface, opacity: float = 1.0):
+        self.true_texture.draw(surface, opacity)
+
+    def next_state(self):
+        self.value = not self.value
+
+    def previous_state(self):
+        self.value = not self.value
+
+    def into(self) -> str:
+        return str(self.value)
+
+    def draw(self, surface: pg.Surface, neighbors: Neighborhood, opacity: float = 1.0):
+        if self.value:
+            self.true_texture.draw(surface, opacity)
+        else:
+            self.false_texture.draw(surface, opacity)
 
 
 class Chip(Directional):
@@ -448,6 +521,13 @@ class Chip(Directional):
 
     def copy(self):
         return copy.deepcopy(self)
+
+    def debug(self):
+        return {
+            '__type__': 'Chip',
+            'direction': self.direction.name,
+            'board': [[self.board.cell[x, y].debug() for x in range(self.board.width)] for y in range(self.board.height)]
+        }
 
     def step(self, neighbors: Neighborhood) -> Cell:
         for side in Side:
@@ -492,6 +572,9 @@ class List_(Value):
     
     def __init__(self, values: List[Value] = ()):
         self.values = list(values)
+
+    def __eq__(self, other):
+        return isinstance(other, List_) and all(x == y for x, y in zip(self.values, other.values))
 
     @classmethod
     def name(cls) -> str:
@@ -552,3 +635,15 @@ class Pop(Processor):
             Side.FRONT: lst,
             Side.LEFT: x
         }
+
+
+class Mu(Cell):
+    __slots__ = []
+
+    texture = SimpleTexture.load('mu')
+
+    def __init__(self):
+        pass
+
+    def draw(self, surface: pg.Surface, neighbors: Neighborhood, opacity: float = 1.0):
+        self.texture.draw(surface)
