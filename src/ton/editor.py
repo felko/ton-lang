@@ -84,7 +84,7 @@ class Toolbar:
 
         for i, cell_type in enumerate(visible_layout):
             rect = pg.Rect((0, CELL_SIZE * i), (CELL_SIZE, CELL_SIZE))
-            cell_type().draw(surface.subsurface(rect), Neighborhood({}))
+            cell_type.draw_icon(surface.subsurface(rect))
 
             if self.offset + i == self.selected:
                 Cursor.texture.draw(surface.subsurface(rect))

@@ -50,6 +50,10 @@ class Cell(object):
     def name(cls) -> str:
         return cls.__name__
 
+    @classmethod
+    def draw_icon(cls, surface: pg.Surface, opacity: float = 1.0):
+        cls.texture.draw(surface, opacity=opacity)
+
     def on_create(self, neighbors: Neighborhood):
         pass
 
@@ -263,10 +267,7 @@ class Processor(Directional):
         return self
 
     def info(self) -> str:
-        if self.arguments:
-            return f"<{type(self).__name__} {' '.join(map(lambda assoc: f'{assoc[0].name}={assoc[1].info()}', self.arguments.items()))}>"
-        else:
-            return f"<{type(self).__name__}>"
+        return f"<{type(self).__name__}>"
 
     def debug(self):
         d = {
@@ -390,6 +391,13 @@ class Integer(Value):
     def __init__(self, value: int = 0):
         self.value = value
 
+    @classmethod
+    def draw_icon(self, surface: pg.Surface, opacity: float = 1.0):
+        texture = self.font.render('x', True, (0, 0, 0))
+        texture = pg.transform.scale(texture, (CELL_SIZE - 4, CELL_SIZE - 4))
+        blit_alpha(surface, Value.background.texture, (0, 0), opacity)
+        blit_alpha(surface, texture, (2, 2), opacity)
+
     def next_state(self):
         self.value += 1
 
@@ -397,7 +405,7 @@ class Integer(Value):
         self.value -= 1
 
     def info(self) -> str:
-        return f"<Integer value={self.value}>"
+        return str(self.value)
 
     def draw(self, surface: pg.Surface, neighbors: Neighborhood, opacity: float = 1.0):
         texture = self.font.render(str(self.value), True, (0, 0, 0))
@@ -484,6 +492,10 @@ class List_(Value):
     
     def __init__(self, values: List[Value] = ()):
         self.values = list(values)
+
+    @classmethod
+    def name(cls) -> str:
+        return "List"
 
     def info(self) -> str:
         return f"[{', '.join(map(lambda cell: cell.info(), self.values))}]"

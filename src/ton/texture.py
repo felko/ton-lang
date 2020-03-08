@@ -39,7 +39,7 @@ class SimpleTexture(Texture):
 
 
 class RotatableTexture(SimpleTexture):
-    def draw(self, surface: pg.Surface, rotation: Rotation, opacity: float = 1.0):
+    def draw(self, surface: pg.Surface, rotation: Rotation = Rotation.R0, opacity: float = 1.0):
         blit_alpha(surface, pg.transform.rotate(self.texture, rotation.value), (0, 0), opacity)
 
 
@@ -64,5 +64,5 @@ class ConnexTexture(Texture):
 
         return cls(textures)
 
-    def draw(self, surface: pg.Surface, connex: Connex, opacity: float = 1.0):
+    def draw(self, surface: pg.Surface, connex: Connex = Connex(0), opacity: float = 1.0):
         blit_alpha(surface, self.textures[connex], (0, 0), opacity)
