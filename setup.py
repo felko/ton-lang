@@ -13,7 +13,7 @@ setup(
         'numpy==1.18.1'
     ],
     package_data={
-        'ton': ['assets/**.png', 'assets/*.ttf']
+        'ton': ['assets/*.png', 'assets/**/*.png', 'assets/*.ttf']
     },
     package_dir = {'': 'src'},
     entry_points = {

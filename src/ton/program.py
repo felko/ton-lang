@@ -63,7 +63,7 @@ class Program(Drawable):
 
         for x, y in self.all_coords():
             neighbors = self.get_neighbors(x, y)
-            next_cells[x, y] = self.cells[x, y].step(neighbors)
+            next_cells[x, y] = self.cells[x, y].copy().step(neighbors)
 
         self.cells = next_cells
 

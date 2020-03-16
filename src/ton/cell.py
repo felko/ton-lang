@@ -4,7 +4,9 @@
 __all__ = [
     'Cell',
     'Empty',
+    'Link',
     'Wire',
+    'Tube',
     'Anchor',
     'Value',
     'Integer',
@@ -111,7 +113,24 @@ class Empty(Cell):
         pass
 
 
-class Wire(Cell):
+class Link(Cell):
+    __slots__ = []
+
+    texture: ConnexTexture
+
+    def get_pins(self) -> Set[Direction]:
+        return set(Direction)
+
+    def draw(self, surface: pg.Surface, neighbors: Neighborhood, opacity: float = 1.0):
+        has_pin = lambda direction, cell: direction.opposite() in cell.get_pins()
+        connex = Connex(0)
+        for direction, cell in neighbors.cells.items():
+            if cell is None or has_pin(direction, cell):
+                connex |= Connex.from_direction(direction)
+        self.texture.draw(surface, connex, opacity)
+
+
+class Wire(Link):
     __slots__ = []
 
     texture = ConnexTexture.load('wire')
@@ -138,7 +157,7 @@ class Wire(Cell):
 
         cells_or_edges = []
         for cell in neighbors.cells.values():
-            if cell is None or isinstance(cell, (Wire, Processor, Anchor, Chip)):
+            if cell is None or isinstance(cell, (Link, Processor, Anchor, Chip)):
                 cells_or_edges.append(cell)
 
         if len(cells_or_edges) >= 2:
@@ -146,17 +165,53 @@ class Wire(Cell):
         else:
             return Empty()
 
-    def get_pins(self) -> Set[Direction]:
-        return set(Direction)
+
+class Tube(Link):
+    __slots__ = ['value', 'flow']
+
+    texture = ConnexTexture.load('tube')
+
+    def __init__(self, value: Optional['Value'] = None, flow: Optional[Connex] = Connex(0)):
+        self.value = value
+        self.flow = flow
+
+    def step(self, neighbors: Neighborhood) -> Cell:
+        values = list(neighbors.filter(lambda _, cell: isinstance(cell, Value)).get_cells())
+        flow = Connex(0)
+
+        for direction, cell in neighbors:
+            c = Connex.from_direction(direction.opposite())
+
+            if isinstance(cell, Tube) \
+                 and cell.value is not None \
+                 and cell.flow & Connex.from_direction(direction):
+                values.append(cell.value)
+                flow |= c
+
+        if values:
+            self.value = random.choice(values)
+        else:
+            self.value = None
+            
+        self.flow = flow
+
+        return self
+
+    def debug(self):
+        return {
+            '__type__': 'Tube',
+            'flow': repr(self.flow),
+            'value': None if self.value is None else self.value.debug()
+        }
 
     def draw(self, surface: pg.Surface, neighbors: Neighborhood, opacity: float = 1.0):
-        has_pin = lambda direction, cell: direction.opposite() in cell.get_pins()
-        connex = Connex(0)
-        for direction, cell in neighbors.cells.items():
-            if cell is None or has_pin(direction, cell):
-                connex |= Connex.from_direction(direction)
-        self.texture.draw(surface, connex, opacity)
-
+       if self.value is None:
+           super().draw(surface, neighbors, opacity)
+       else:
+           reduced_size = CELL_SIZE * 3/4
+           value_surface = pg.Surface((reduced_size, reduced_size))
+           self.value.draw(surface, neighbors, opacity)
+        
 
 class Anchor(Cell):
     __slots__ = []
@@ -245,7 +300,7 @@ class Processor(Directional):
         )
 
     def is_waiting_for(self, direction: Direction) -> bool:
-        return not self.is_fed() and self.get_direction_side(direction) in self.inputs
+        return self.get_direction_side(direction) not in self.arguments
 
     def will_provide(self, direction: Direction) -> bool:
         return self.get_direction_side(direction) in self.outputs
@@ -280,6 +335,8 @@ class Processor(Directional):
             'inputs': {side.name: param.name() for side, param in self.inputs.items()},
             'outputs': [side.name for side in self.outputs],
             'arguments': {side.name: cell.debug() for side, cell in self.arguments.items()},
+            'is_waiting_for': list(map(lambda d: d.name, filter(self.is_waiting_for, Direction))),
+            'will_provide': list(map(lambda d: d.name, filter(self.will_provide, Direction))),
             'fired': self.fired
         }
         return d
@@ -638,12 +695,15 @@ class Pop(Processor):
 
 
 class Mu(Cell):
-    __slots__ = []
+    __slots__ = ['program']
 
     texture = SimpleTexture.load('mu')
 
-    def __init__(self):
-        pass
+    def __init__(self, program: 'Program' = None):
+        self.program = Program.empty(16, 16) if program is None else program.copy()
+
+    def step(self, neighbors: Neighborhood):
+        return self
 
     def draw(self, surface: pg.Surface, neighbors: Neighborhood, opacity: float = 1.0):
         self.texture.draw(surface)

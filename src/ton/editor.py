@@ -44,6 +44,7 @@ class Toolbar:
         self.selected_name_fadeout = 1/8
         self.layout = [
             Wire,
+            Tube,
             Diode,
             Transistor,
             Anchor,
