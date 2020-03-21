@@ -56,7 +56,7 @@ processors behave as values temporarily (and therefore movable through wires)
 
 ## Examples
 
-![Using chips to define a subroutine that increments an integer](screenshots/chip_increment.gifv)
+![Using chips to define a subroutine that increments an integer](screenshots/chip_increment.gif)
 
-![Manipulating lists](screenshots/manipulating_lists.gifv)
+![Manipulating lists](screenshots/manipulating_lists.gif)
 
