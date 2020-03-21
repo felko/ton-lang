@@ -9,18 +9,18 @@ partial evaluation. On the other hand some features can be hard to implement —
 at least the way I've approached the problem — e.g. I'm still trying to figure
 out how to implement recursion.
  
-## Usage:
+## Usage
 
-### CLI: 
+### CLI
 
 - Creating a new file: `ton new <path>`
 - Editing an existing file: `ton edit <path>`
 - (Upcoming) Render the evaluation of a program as a gif: `ton run
   <program-path> <gif-output-path>`
   
-### Editor:
+### Editor
 
-#### Cells:
+#### Cells
 
 Cells are divided in three main categories:
 - Links: wires connecting cells, visually "pulling" values to processors
@@ -34,7 +34,7 @@ basically sub-programs.
 Eventually I'd like to implement quotes (as in e.g. lisp) which would make
 processors behave as values temporarily (and therefore movable through wires)
 
-### Controls:
+### Controls
 
 - Left-click: write the selected cell
 - Right-click: delete the pointed cell
@@ -54,9 +54,9 @@ processors behave as values temporarily (and therefore movable through wires)
 - D: print JSON-representation of a cell in the console for debugging
 - I: shows information about a cell directly in the editor
 
-## Examples:
+## Examples
 
 ![Using chips to define a subroutine that increments an integer](screenshots/chip_increment.gifv)
 
-![Manipulating lists (pushing 1, 2 and 3 and popping 1)](screenshots/manipulating_lists.gifv)
+![Manipulating lists](screenshots/manipulating_lists.gifv)
 
