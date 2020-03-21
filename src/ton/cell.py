@@ -328,12 +328,12 @@ class Processor(Directional):
         return f"<{type(self).__name__}>"
 
     def debug(self):
-        print(self)
         d = {
             '__type__': self.name(),
             'direction': self.direction.name,
             'inputs': {side.name: param.name() for side, param in self.inputs.items()},
             'outputs': [side.name for side in self.outputs],
+            'is_fed': self.is_fed(),
             'arguments': {side.name: cell.debug() for side, cell in self.arguments.items()},
             'is_waiting_for': list(map(lambda d: d.name, filter(self.is_waiting_for, Direction))),
             'will_provide': list(map(lambda d: d.name, filter(self.will_provide, Direction))),
@@ -468,7 +468,7 @@ class Value(Cell):
         processors = neighbors.filter(lambda _, cell: isinstance(cell, Processor))
 
         for direction, processor in processors:
-            if processor.has_pin(direction.opposite()) and not processor.is_fed():
+            if not processor.is_fed():
                 return self
 
         anchors = neighbors.filter(lambda _, cell: isinstance(cell, Anchor))
