@@ -9,6 +9,21 @@ partial evaluation. On the other hand some features can be hard to implement —
 at least the way I've approached the problem — e.g. I'm still trying to figure
 out how to implement recursion.
  
+## Installing
+
+Run the following command to install the editor/interpreter
+
+```sh
+$ python3.8 setup.py install --user
+```
+
+Make sure that the `site-packages` directory is in your path.
+
+Dependencies:
+- pygame v2
+- fire
+- numpy
+ 
 ## Usage
 
 ### CLI
