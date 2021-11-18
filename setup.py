@@ -8,7 +8,7 @@ setup(
     packages = find_namespace_packages(where="src"),
     install_requires=[
         'fire==0.2.1',
-        'pip==19.3.1',
+        'pip==21.1',
         'pygame==2.0.0.dev6',
         'numpy==1.18.1'
     ],
