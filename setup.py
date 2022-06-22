@@ -10,7 +10,7 @@ setup(
         'fire==0.2.1',
         'pip==21.1',
         'pygame==2.0.0.dev6',
-        'numpy==1.18.1'
+        'numpy==1.22.0'
     ],
     package_data={
         'ton': ['assets/*.png', 'assets/**/*.png', 'assets/*.ttf']
